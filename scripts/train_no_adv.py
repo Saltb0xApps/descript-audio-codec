@@ -17,7 +17,6 @@ from audiotools.data.datasets import ConcatDataset
 from audiotools.ml.decorators import timer
 from audiotools.ml.decorators import Tracker
 from audiotools.ml.decorators import when
-from torch.utils.tensorboard import SummaryWriter
 
 import dac
 
@@ -262,7 +261,6 @@ def checkpoint(state, save_iters, save_path):
 
 @torch.no_grad()
 def save_samples(state, val_idx, writer):
-    state.tracker.print("Saving audio samples to TensorBoard")
     state.generator.eval()
 
     samples = [state.val_data[idx] for idx in val_idx]
@@ -320,14 +318,14 @@ def train(
 ):
     util.seed(seed)
     Path(save_path).mkdir(exist_ok=True, parents=True)
-    writer = (
-        SummaryWriter(log_dir=f"{save_path}/logs") if accel.local_rank == 0 else None
-    )
-    tracker = Tracker(
-        writer=writer, log_file=f"{save_path}/log.txt", rank=accel.local_rank
-    )
+    # writer = (
+    #     SummaryWriter(log_dir=f"{save_path}/logs") if accel.local_rank == 0 else None
+    # )
+    # tracker = Tracker(
+    #     writer=writer, log_file=f"{save_path}/log.txt", rank=accel.local_rank
+    # )
 
-    state = load(args, accel, tracker, save_path)
+    state = load(args, accel, None, save_path)
     train_dataloader = accel.prepare_dataloader(
         state.train_data,
         start_idx=state.tracker.step * batch_size,
@@ -345,37 +343,36 @@ def train(
         persistent_workers=True,
     )
 
-    # Wrap the functions so that they neatly track in TensorBoard + progress bars
     # and only run when specific conditions are met.
-    global train_loop, val_loop, validate, save_samples, checkpoint
-    train_loop = tracker.log("train", "value", history=False)(
-        tracker.track("train", num_iters, completed=state.tracker.step)(train_loop)
-    )
-    val_loop = tracker.track("val", len(val_dataloader))(val_loop)
-    validate = tracker.log("val", "mean")(validate)
+    # global train_loop, val_loop, validate, save_samples, checkpoint
+    # train_loop = tracker.log("train", "value", history=False)(
+    #     tracker.track("train", num_iters, completed=state.tracker.step)(train_loop)
+    # )
+    # val_loop = tracker.track("val", len(val_dataloader))(val_loop)
+    # validate = tracker.log("val", "mean")(validate)
 
-    # These functions run only on the 0-rank process
-    save_samples = when(lambda: accel.local_rank == 0)(save_samples)
-    checkpoint = when(lambda: accel.local_rank == 0)(checkpoint)
+    # # These functions run only on the 0-rank process
+    # save_samples = when(lambda: accel.local_rank == 0)(save_samples)
+    # checkpoint = when(lambda: accel.local_rank == 0)(checkpoint)
 
-    with tracker.live:
-        for tracker.step, batch in enumerate(train_dataloader, start=tracker.step):
-            train_loop(state, batch, accel, lambdas)
+    # with tracker.live:
+    #     for tracker.step, batch in enumerate(train_dataloader, start=tracker.step):
+    #         train_loop(state, batch, accel, lambdas)
 
-            last_iter = (
-                tracker.step == num_iters - 1 if num_iters is not None else False
-            )
-            if tracker.step % sample_freq == 0 or last_iter:
-                save_samples(state, val_idx, writer)
+    #         last_iter = (
+    #             tracker.step == num_iters - 1 if num_iters is not None else False
+    #         )
+    #         if tracker.step % sample_freq == 0 or last_iter:
+    #             save_samples(state, val_idx, writer)
 
-            if tracker.step % valid_freq == 0 or last_iter:
-                validate(state, val_dataloader, accel)
-                checkpoint(state, save_iters, save_path)
-                # Reset validation progress bar, print summary since last validation.
-                tracker.done("val", f"Iteration {tracker.step}")
+    #         if tracker.step % valid_freq == 0 or last_iter:
+    #             validate(state, val_dataloader, accel)
+    #             checkpoint(state, save_iters, save_path)
+    #             # Reset validation progress bar, print summary since last validation.
+    #             tracker.done("val", f"Iteration {tracker.step}")
 
-            if last_iter:
-                break
+    #         if last_iter:
+    #             break
 
 
 if __name__ == "__main__":

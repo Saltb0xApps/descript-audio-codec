@@ -16,7 +16,6 @@ from audiotools.data.datasets import ConcatDataset
 from audiotools.ml.decorators import timer
 from audiotools.ml.decorators import Tracker
 from audiotools.ml.decorators import when
-from torch.utils.tensorboard import SummaryWriter
 
 import dac
 
@@ -313,7 +312,6 @@ def checkpoint(state, save_iters, save_path):
 
 @torch.no_grad()
 def save_samples(state, val_idx, writer):
-    state.tracker.print("Saving audio samples to TensorBoard")
     state.generator.eval()
 
     samples = [state.val_data[idx] for idx in val_idx]
@@ -396,7 +394,6 @@ def train(
         persistent_workers=True if num_workers > 0 else False,
     )
 
-    # Wrap the functions so that they neatly track in TensorBoard + progress bars
     # and only run when specific conditions are met.
     global train_loop, val_loop, validate, save_samples, checkpoint
     train_loop = tracker.log("train", "value", history=False)(
