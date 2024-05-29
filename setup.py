@@ -28,7 +28,7 @@ setup(
     keywords=["audio", "compression", "machine learning"],
     install_requires=[
         "argbind>=0.3.7",
-        'git+https://github.com/Saltb0xApps/audiotools.git',
+        "descript-audiotools @ git+https://github.com/Saltb0xApps/audiotools.git",
         "einops",
         "numpy",
         "torch",
